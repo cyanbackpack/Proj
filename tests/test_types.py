@@ -68,8 +68,8 @@ def test_marginal_check_1d_input():
 def test_marginal_check_report_structure():
     x = _make_signal(C=4)
     report = marginal_check_report(x, x.copy(), window=(10, 50))
-    assert "passes" in report
-    assert "per_channel_max_z" in report
+    for key in ("passes", "per_channel_max_z", "per_channel_orig_max_z", "z_threshold", "window"):
+        assert key in report
     assert len(report["per_channel_max_z"]) == 4
     assert report["passes"] is True
 

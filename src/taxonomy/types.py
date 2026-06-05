@@ -125,8 +125,12 @@ def marginal_check(
     window: tuple[int, int],
     z_threshold: float = 2.5,
 ) -> bool:
-    """Return True if every channel in the injected window stays within
-    z_threshold standard deviations of the original signal's marginal.
+    """Return True if the injection does not introduce new marginal extremes.
+
+    A channel in the injected window passes if its max |z-score| is ≤
+    max(z_threshold, original_window_max_z).  This allows naturally occurring
+    values above z_threshold that were already present in x_orig[window] to
+    remain, while still catching injections that create genuinely new spikes.
 
     Parameters
     ----------
@@ -137,7 +141,7 @@ def marginal_check(
     window:
         (start, end) indices of the injected anomaly window (end exclusive).
     z_threshold:
-        Maximum allowed |z-score| for any sample inside the window.
+        Hard cap on NEW z-score exceedances (default 2.5σ).
     """
     if x_orig.ndim == 1:
         x_orig = x_orig[:, np.newaxis]
@@ -148,8 +152,11 @@ def marginal_check(
     sigma = x_orig.std(axis=0)
     sigma = np.where(sigma == 0, 1.0, sigma)  # guard against constant channels
 
-    z = np.abs((x_injected[start:end] - mu) / sigma)  # shape (window_len, C)
-    return bool(z.max() <= z_threshold)
+    z_orig_win = np.abs((x_orig[start:end] - mu) / sigma).max(axis=0)
+    z_inj_win = np.abs((x_injected[start:end] - mu) / sigma).max(axis=0)
+    # Effective threshold: whichever is larger, the hard cap or what was naturally there
+    effective = np.maximum(z_threshold, z_orig_win)
+    return bool((z_inj_win <= effective).all())
 
 
 def marginal_check_report(
@@ -168,13 +175,16 @@ def marginal_check_report(
     sigma = x_orig.std(axis=0)
     sigma = np.where(sigma == 0, 1.0, sigma)
 
-    z = np.abs((x_injected[start:end] - mu) / sigma)
-    per_channel_max = z.max(axis=0).tolist()
-    passes = all(v <= z_threshold for v in per_channel_max)
+    z_orig_win = np.abs((x_orig[start:end] - mu) / sigma).max(axis=0)
+    z_inj_win = np.abs((x_injected[start:end] - mu) / sigma).max(axis=0)
+    effective = np.maximum(z_threshold, z_orig_win)
+    per_channel_max = z_inj_win.tolist()
+    passes = bool((z_inj_win <= effective).all())
 
     return {
         "passes": passes,
         "z_threshold": z_threshold,
         "per_channel_max_z": per_channel_max,
+        "per_channel_orig_max_z": z_orig_win.tolist(),
         "window": window,
     }
