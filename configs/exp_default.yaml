@@ -1,0 +1,41 @@
+# Default experiment config
+# Run: python src/experiments/run_experiment.py --config configs/exp_default.yaml
+
+seed: 42
+
+data:
+  base_path: data/synthetic/base_42.npz
+  train_ratio: 0.6          # fraction of signal used for training (normal)
+  window_size: 50           # sliding window for windowed models
+
+injection:
+  window_size: 100          # length of anomaly window to inject
+  n_windows: 5              # number of non-overlapping anomaly windows
+  types: [C1, C2, C3, C4, C5]   # anomaly types to evaluate
+
+models:
+  zscore:
+    enabled: true
+  moving_average:
+    enabled: true
+    window: 20
+  knn:
+    enabled: true
+    n_neighbors: 5
+    window_size: 50
+  lof:
+    enabled: true
+    n_neighbors: 20
+    window_size: 50
+  ae:
+    enabled: false           # set true when torch is installed
+    window_size: 50
+    hidden_dims: [64, 16]
+    epochs: 50
+    batch_size: 64
+    lr: 0.001
+
+evaluation:
+  metric: vus_pr            # primary metric (never PA-F1)
+  buffer_sizes: [0, 5, 10, 20, 50]   # VUS-PR integration range
+  output_dir: results/
