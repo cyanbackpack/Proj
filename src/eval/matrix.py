@@ -173,18 +173,31 @@ class RecallMatrix:
 # ---------------------------------------------------------------------------
 
 def build_from_results(results_dir: str | Path) -> RecallMatrix:
-    """Reconstruct a RecallMatrix by loading all JSON files in *results_dir*.
+    """Reconstruct a RecallMatrix from all JSON result files in *results_dir*.
 
-    Multiple files are merged; later files overwrite earlier ones for the same
-    (model, type) cell.
+    Handles two file formats:
+    - recall_matrix_*.json  — saved by RecallMatrix.save()
+    - *_<model>.json        — saved by run_experiment.py (has "model" + "vus_pr" keys)
+
+    Multiple files are merged; later files (lexicographically) overwrite earlier
+    ones for the same (model, type) cell.
     """
     matrix = RecallMatrix()
-    for p in sorted(Path(results_dir).glob("recall_matrix_*.json")):
+    for p in sorted(Path(results_dir).glob("*.json")):
         with open(p) as f:
             data = json.load(f)
-        for model_name, scores in data["results"].items():
-            for type_id, score in scores.items():
+
+        if "results" in data:
+            # recall_matrix format
+            for model_name, scores in data["results"].items():
+                for type_id, score in scores.items():
+                    matrix.add_result(model_name, type_id, score)
+        elif "vus_pr" in data and "model" in data:
+            # run_experiment format
+            model_name = data["model"]
+            for type_id, score in data["vus_pr"].items():
                 matrix.add_result(model_name, type_id, score)
+
     return matrix
 
 
