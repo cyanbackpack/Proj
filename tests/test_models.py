@@ -7,7 +7,12 @@ import pytest
 
 from src.models.base import BaseDetector
 from src.models.baseline import MovingAverageDetector, ZScoreDetector
-from src.models.classic import KNNDetector, LOFDetector
+from src.models.classic import (
+    CovarianceAnomalyDetector,
+    KNNDetector,
+    LOFDetector,
+    MahalanobisDetector,
+)
 from src.data.generator import VARGenerator
 
 
@@ -197,6 +202,118 @@ def test_lof_before_fit_raises():
     det = LOFDetector()
     with pytest.raises(RuntimeError):
         det.score(TEST)
+
+
+# ---------------------------------------------------------------------------
+# MahalanobisDetector
+# ---------------------------------------------------------------------------
+
+def test_mahal_fit_returns_self():
+    det = MahalanobisDetector(window_size=10)
+    assert det.fit(TRAIN) is det
+
+
+def test_mahal_score_shape():
+    det = MahalanobisDetector(window_size=10).fit(TRAIN)
+    assert det.score(TEST).shape == (TEST_T,)
+
+
+def test_mahal_scores_non_negative():
+    det = MahalanobisDetector(window_size=10).fit(TRAIN)
+    assert (det.score(TEST) >= 0).all()
+
+
+def test_mahal_scores_finite():
+    det = MahalanobisDetector(window_size=10).fit(TRAIN)
+    assert np.isfinite(det.score(TEST)).all()
+
+
+def test_mahal_invalid_estimator():
+    with pytest.raises(ValueError, match="covariance_estimator"):
+        MahalanobisDetector(covariance_estimator="bad")
+
+
+def test_mahal_before_fit_raises():
+    with pytest.raises(RuntimeError):
+        MahalanobisDetector().score(TEST)
+
+
+def test_mahal_catches_correlation_break():
+    """Mahalanobis should score higher when cross-channel correlation breaks.
+
+    Construct a highly-correlated 2-channel signal so the training covariance
+    is almost rank-1; then inject a near-zero-correlation window and verify the
+    Mahalanobis distance increases.
+    """
+    rng = np.random.default_rng(0)
+    T_tr, T_te = 400, 200
+    base = rng.standard_normal(T_tr + T_te)
+    noise = rng.standard_normal((T_tr + T_te, 2)) * 0.05
+    x_full = np.stack([base, base], axis=1) + noise  # near-perfect correlation
+
+    x_tr = x_full[:T_tr]
+    x_clean = x_full[T_tr:]
+    # Inject C1: break correlation in window [50, 100]
+    from src.taxonomy.injectors import C1CorrelationBreakInjector
+    x_inj = C1CorrelationBreakInjector(seed=0, n_iter=16).inject(x_clean, (50, 100))
+
+    det = MahalanobisDetector(window_size=20).fit(x_tr)
+    s_clean = det.score(x_clean)
+    s_inj = det.score(x_inj)
+    assert s_inj[50:100].mean() > s_clean[50:100].mean(), (
+        f"Expected higher score in anomaly window: "
+        f"inj={s_inj[50:100].mean():.3f}, clean={s_clean[50:100].mean():.3f}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# CovarianceAnomalyDetector
+# ---------------------------------------------------------------------------
+
+def test_cov_fit_returns_self():
+    det = CovarianceAnomalyDetector(window_size=20)
+    assert det.fit(TRAIN) is det
+
+
+def test_cov_score_shape():
+    det = CovarianceAnomalyDetector(window_size=20).fit(TRAIN)
+    assert det.score(TEST).shape == (TEST_T,)
+
+
+def test_cov_scores_non_negative():
+    det = CovarianceAnomalyDetector(window_size=20).fit(TRAIN)
+    assert (det.score(TEST) >= 0).all()
+
+
+def test_cov_scores_finite():
+    det = CovarianceAnomalyDetector(window_size=20).fit(TRAIN)
+    assert np.isfinite(det.score(TEST)).all()
+
+
+def test_cov_before_fit_raises():
+    with pytest.raises(RuntimeError):
+        CovarianceAnomalyDetector().score(TEST)
+
+
+def test_cov_elevated_on_correlation_break():
+    """CovarianceAnomaly should react to a correlation-break injection."""
+    rng = np.random.default_rng(1)
+    T_tr, T_te = 400, 200
+    base = rng.standard_normal(T_tr + T_te)
+    noise = rng.standard_normal((T_tr + T_te, 2)) * 0.05
+    x_full = np.stack([base, base], axis=1) + noise
+
+    x_tr = x_full[:T_tr]
+    x_clean = x_full[T_tr:]
+    from src.taxonomy.injectors import C1CorrelationBreakInjector
+    x_inj = C1CorrelationBreakInjector(seed=1, n_iter=16).inject(x_clean, (50, 100))
+
+    det = CovarianceAnomalyDetector(window_size=20).fit(x_tr)
+    s_clean = det.score(x_clean)
+    s_inj = det.score(x_inj)
+    assert s_inj[50:100].mean() > s_clean[50:100].mean(), (
+        f"inj={s_inj[50:100].mean():.3f}, clean={s_clean[50:100].mean():.3f}"
+    )
 
 
 # ---------------------------------------------------------------------------

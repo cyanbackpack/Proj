@@ -27,6 +27,12 @@ models:
     enabled: true
     n_neighbors: 20
     window_size: 50
+  mahalanobis:
+    enabled: true
+    covariance_estimator: ledoit_wolf   # or 'empirical'
+  covariance:
+    enabled: true
+    stride: 1
   ae:
     enabled: false           # set true when torch is installed
     window_size: 50

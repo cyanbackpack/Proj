@@ -30,7 +30,12 @@ from src.data.generator import VARGenerator
 from src.eval.metrics import vus_pr
 from src.models.base import BaseDetector
 from src.models.baseline import MovingAverageDetector, ZScoreDetector
-from src.models.classic import KNNDetector, LOFDetector
+from src.models.classic import (
+    CovarianceAnomalyDetector,
+    KNNDetector,
+    LOFDetector,
+    MahalanobisDetector,
+)
 from src.taxonomy.injectors import INJECTOR_REGISTRY
 from src.taxonomy.types import AnomalyType
 from src.utils import set_seed
@@ -55,6 +60,16 @@ def _build_detector(model_name: str, cfg: dict) -> BaseDetector:
         return LOFDetector(
             n_neighbors=model_cfg.get("n_neighbors", 20),
             window_size=cfg["data"]["window_size"],
+        )
+    if model_name == "mahalanobis":
+        return MahalanobisDetector(
+            window_size=cfg["data"]["window_size"],
+            covariance_estimator=model_cfg.get("covariance_estimator", "ledoit_wolf"),
+        )
+    if model_name == "covariance":
+        return CovarianceAnomalyDetector(
+            window_size=cfg["data"]["window_size"],
+            stride=model_cfg.get("stride", 1),
         )
     if model_name == "ae":
         from src.models.deep.ae import AutoEncoderDetector
