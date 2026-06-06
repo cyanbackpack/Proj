@@ -137,6 +137,18 @@ def _inject_and_label(
     injector_cls = INJECTOR_REGISTRY[anomaly_type]
     sig = inspect.signature(injector_cls.__init__)
     init_kwargs = {"seed": seed} if "seed" in sig.parameters else {}
+
+    # Pass n_points from config when the injector supports it.
+    # Use a per-class lookup so configs can tune density independently.
+    _N_POINTS_KEY: dict[str, str] = {
+        "A1GlobalPointInjector": "a1_n_points",
+        "A2ContextualPointInjector": "a2_n_points",
+    }
+    if "n_points" in sig.parameters:
+        cfg_key = _N_POINTS_KEY.get(injector_cls.__name__)
+        if cfg_key is not None and cfg_key in injection_cfg:
+            init_kwargs["n_points"] = injection_cfg[cfg_key]
+
     injector = injector_cls(**init_kwargs)
 
     x_inj = x.copy()

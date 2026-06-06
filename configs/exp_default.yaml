@@ -12,6 +12,8 @@ injection:
   window_size: 100          # length of anomaly window to inject
   n_windows: 5              # number of non-overlapping anomaly windows
   types: [C1, C2, C3, C4, C5]   # anomaly types to evaluate
+  a1_n_points: 20     # spikes per window (20% density → VUS-PR meaningful)
+  a2_n_points: 15     # contextual anomaly points per window
 
 models:
   zscore:

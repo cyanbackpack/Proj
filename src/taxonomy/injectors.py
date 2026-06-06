@@ -329,7 +329,13 @@ class A1GlobalPointInjector(BaseInjector):
     n_sigma:
         Spike magnitude in standard deviations (default 5).
     n_points:
-        Number of spike positions inside the window.
+        Number of spike positions inside the window.  Default is 20 (i.e.
+        20% of a 100-step window), so that point-level metrics such as
+        VUS-PR have enough positives within the labeled region to produce a
+        meaningful score.  Setting this to 1 results in only 1% of the
+        labeled timesteps being actually anomalous, which drives VUS-PR to
+        near-random (~0.01 precision) regardless of how well the detector
+        identifies the spike.
     """
 
     anomaly_type = AnomalyType.A1
@@ -338,7 +344,7 @@ class A1GlobalPointInjector(BaseInjector):
         self,
         target_channel: int = 0,
         n_sigma: float = 5.0,
-        n_points: int = 1,
+        n_points: int = 20,
         z_threshold: float = 2.5,
     ) -> None:
         super().__init__(z_threshold=z_threshold)
@@ -371,7 +377,12 @@ class A2ContextualPointInjector(BaseInjector):
     amplitude_factor:
         Controls how far from the local mean the injected value is placed.
     n_points:
-        Number of anomalous points in the window.
+        Number of anomalous points in the window.  Default is 15 (i.e.
+        15% of a 100-step window), so that point-level metrics such as
+        VUS-PR see a sufficient density of true positives within the labeled
+        region.  Fewer points (e.g. 3) means <5% of labeled timesteps are
+        anomalous, which collapses VUS-PR toward random chance even when the
+        detector finds the anomalous positions correctly.
     seed:
         RNG seed for point selection.
     """
@@ -382,7 +393,7 @@ class A2ContextualPointInjector(BaseInjector):
         self,
         target_channel: int = 0,
         amplitude_factor: float = 2.5,
-        n_points: int = 3,
+        n_points: int = 15,
         seed: int = 0,
         z_threshold: float = 2.5,
     ) -> None:
