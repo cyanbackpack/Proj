@@ -1,0 +1,17 @@
+# VAR(p) base signal generation config
+# Run: python src/data/generator.py --config configs/var_base.yaml
+
+seed: 42
+
+var:
+  n_channels: 6          # number of variates
+  lag_order: 2           # VAR(p) order
+  T: 2000                # total time steps
+  # Coefficient matrix A_k for each lag: auto-generated if not provided.
+  # spectral_radius controls stability: keep < 1.0
+  spectral_radius: 0.7
+  noise_scale: 1.0       # std of the white-noise innovation
+
+output:
+  path: data/synthetic/base_{seed}.npz   # {seed} is replaced at runtime
+  save_covariance: true  # save Sigma_noise alongside the signal
