@@ -33,6 +33,11 @@ models:
   covariance:
     enabled: true
     stride: 1
+  lag_correlation:
+    enabled: true
+    window_size: 100         # must be > 2 * max_lag; larger = more stable CCF estimate
+    max_lag: 20              # lags ±20 searched in cross-correlation function
+    stride: 1
   ae:
     enabled: false           # set true when torch is installed
     window_size: 50

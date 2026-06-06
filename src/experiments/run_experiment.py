@@ -33,6 +33,7 @@ from src.models.baseline import MovingAverageDetector, ZScoreDetector
 from src.models.classic import (
     CovarianceAnomalyDetector,
     KNNDetector,
+    LagCorrelationDetector,
     LOFDetector,
     MahalanobisDetector,
 )
@@ -71,6 +72,12 @@ def _build_detector(model_name: str, cfg: dict) -> BaseDetector:
             window_size=cfg["data"]["window_size"],
             stride=model_cfg.get("stride", 1),
         )
+    if model_name == "lag_correlation":
+        return LagCorrelationDetector(
+            window_size=model_cfg.get("window_size", cfg["data"]["window_size"] * 2),
+            max_lag=model_cfg.get("max_lag", 20),
+            stride=model_cfg.get("stride", 1),
+        )
     if model_name == "ae":
         from src.models.deep.ae import AutoEncoderDetector
         return AutoEncoderDetector(
@@ -81,7 +88,8 @@ def _build_detector(model_name: str, cfg: dict) -> BaseDetector:
             lr=model_cfg.get("lr", 1e-3),
         )
     raise ValueError(f"Unknown model: '{model_name}'. "
-                     f"Choose from: zscore, moving_average, knn, lof, ae")
+                     f"Choose from: zscore, moving_average, knn, lof, "
+                     f"mahalanobis, covariance, lag_correlation, ae")
 
 
 # ---------------------------------------------------------------------------

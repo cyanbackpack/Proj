@@ -10,6 +10,7 @@ from src.models.baseline import MovingAverageDetector, ZScoreDetector
 from src.models.classic import (
     CovarianceAnomalyDetector,
     KNNDetector,
+    LagCorrelationDetector,
     LOFDetector,
     MahalanobisDetector,
 )
@@ -313,6 +314,66 @@ def test_cov_elevated_on_correlation_break():
     s_inj = det.score(x_inj)
     assert s_inj[50:100].mean() > s_clean[50:100].mean(), (
         f"inj={s_inj[50:100].mean():.3f}, clean={s_clean[50:100].mean():.3f}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# LagCorrelationDetector
+# ---------------------------------------------------------------------------
+
+def test_lag_fit_returns_self():
+    det = LagCorrelationDetector(window_size=50, max_lag=10)
+    assert det.fit(TRAIN) is det
+
+
+def test_lag_score_shape():
+    det = LagCorrelationDetector(window_size=50, max_lag=10).fit(TRAIN)
+    assert det.score(TEST).shape == (TEST_T,)
+
+
+def test_lag_scores_non_negative():
+    det = LagCorrelationDetector(window_size=50, max_lag=10).fit(TRAIN)
+    assert (det.score(TEST) >= 0).all()
+
+
+def test_lag_scores_finite():
+    det = LagCorrelationDetector(window_size=50, max_lag=10).fit(TRAIN)
+    assert np.isfinite(det.score(TEST)).all()
+
+
+def test_lag_before_fit_raises():
+    det = LagCorrelationDetector()
+    with pytest.raises(RuntimeError):
+        det.score(TEST)
+
+
+def test_lag_single_channel_raises():
+    with pytest.raises(ValueError, match="2 channels"):
+        LagCorrelationDetector().fit(TRAIN[:, :1])
+
+
+def test_lag_detects_phase_shift():
+    """LagCorrelation should score higher after a C2 (phase-shift) injection."""
+    rng = np.random.default_rng(0)
+    T_tr = 400
+    # Two strongly lagged channels: y[t] = x[t-10] + noise
+    n_total = T_tr + TEST_T + 10
+    base = rng.standard_normal(n_total)
+    noise = rng.standard_normal((T_tr + TEST_T, 2)) * 0.1
+    x_full = np.stack([base[10:], base[:-10]], axis=1) + noise  # lag-10 relationship
+
+    x_tr = x_full[:T_tr]
+    x_te = x_full[T_tr:]
+
+    from src.taxonomy.injectors import C2PhaseShiftInjector
+    x_inj = C2PhaseShiftInjector(tau=15).inject(x_te.copy(), (50, 150))
+
+    det = LagCorrelationDetector(window_size=60, max_lag=25).fit(x_tr)
+    s_clean = det.score(x_te)
+    s_inj = det.score(x_inj)
+    assert s_inj[50:150].mean() > s_clean[50:150].mean(), (
+        f"Expected higher lag-shift score in anomaly window: "
+        f"inj={s_inj[50:150].mean():.4f}, clean={s_clean[50:150].mean():.4f}"
     )
 
 

@@ -39,6 +39,7 @@ _DEFAULT_MODEL_ORDER = [
     "lof",
     "mahalanobis",
     "covariance",
+    "lag_correlation",
 ]
 
 _ALL_TYPES = list(AnomalyType)
